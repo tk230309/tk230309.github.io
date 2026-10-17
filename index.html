@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#070a13" />
+  <title>Rhythm Football - Smartphone N1 MVP</title>
+  <style>
+    :root {
+      --bg: #070a13;
+      --panel: rgba(9, 15, 29, 0.88);
+      --line: rgba(255,255,255,0.16);
+      --cyan: #38bdf8;
+      --yellow: #fbbf24;
+      --kick: #ff4757;
+      --head: #2ed573;
+      --danger: #ef4444;
+      --text: #f8fafc;
+      --muted: #cbd5e1;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
+      overflow: hidden;
+      overscroll-behavior: none;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100dvh;
+      background: #0a0f1d;
+      overflow: hidden;
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #hud {
+      position: absolute;
+      top: max(10px, env(safe-area-inset-top));
+      left: max(12px, env(safe-area-inset-left));
+      right: max(12px, env(safe-area-inset-right));
+      z-index: 20;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: start;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .hud-card {
+      background: rgba(5, 10, 20, 0.70);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 8px 12px;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.22);
+    }
+
+    #score { font-size: clamp(16px, 2.3vw, 26px); font-weight: 900; color: var(--cyan); }
+    #timer { font-size: clamp(18px, 2.5vw, 30px); font-weight: 900; text-align: center; }
+    #mode { font-size: clamp(11px, 1.5vw, 16px); color: var(--muted); text-align: right; }
+
+    #judge {
+      position: absolute;
+      top: 17%;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 18;
+      font-size: clamp(22px, 4.2vw, 48px);
+      font-weight: 1000;
+      font-style: italic;
+      text-align: center;
+      text-shadow: 0 3px 12px rgba(0,0,0,0.7);
+      pointer-events: none;
+      min-width: 70%;
+    }
+
+    #beat-box {
+      position: absolute;
+      top: max(62px, calc(env(safe-area-inset-top) + 54px));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 17;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      pointer-events: none;
+    }
+
+    .beat-dot {
+      width: clamp(8px, 1.3vw, 14px);
+      height: clamp(8px, 1.3vw, 14px);
+      border-radius: 50%;
+      background: rgba(255,255,255,0.22);
+      border: 1px solid rgba(255,255,255,0.35);
+      transition: transform 80ms linear, background 80ms linear, box-shadow 80ms linear;
+    }
+    .beat-dot.active {
+      background: var(--yellow);
+      transform: scale(1.35);
+      box-shadow: 0 0 15px rgba(251,191,36,0.9);
+    }
+
+    #touch-controls {
+      position: absolute;
+      left: max(8px, env(safe-area-inset-left));
+      right: max(8px, env(safe-area-inset-right));
+      bottom: max(8px, env(safe-area-inset-bottom));
+      height: min(29vh, 170px);
+      z-index: 30;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .touch-zone {
+      border: 2px solid rgba(255,255,255,0.28);
+      border-radius: 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 2px;
+      color: white;
+      font-weight: 1000;
+      font-size: clamp(20px, 4vw, 38px);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.55);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      transition: transform 60ms ease, filter 60ms ease, border-color 60ms ease;
+    }
+    .touch-zone span { font-size: clamp(11px, 1.8vw, 16px); font-weight: 700; opacity: 0.9; }
+    #kick-zone { background: rgba(255,71,87,0.25); }
+    #head-zone { background: rgba(46,213,115,0.23); }
+    .touch-zone.pressed { transform: scale(0.985); filter: brightness(1.35); border-color: white; }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+      background: radial-gradient(circle at 50% 42%, rgba(21,128,61,0.32), rgba(7,10,19,0.95) 60%);
+    }
+    .overlay.hidden { display: none; }
+
+    .panel {
+      width: min(760px, 94vw);
+      max-height: 92dvh;
+      overflow: auto;
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 22px;
+      padding: clamp(18px, 3vw, 30px);
+      box-shadow: 0 20px 70px rgba(0,0,0,0.5);
+      text-align: center;
+    }
+
+    h1 { margin: 0 0 8px; font-size: clamp(24px, 4.8vw, 44px); }
+    .sub { color: var(--muted); font-size: clamp(13px, 1.8vw, 17px); line-height: 1.55; margin-bottom: 16px; }
+    .research-note {
+      margin: 12px auto 18px;
+      max-width: 620px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: rgba(56,189,248,0.10);
+      border: 1px solid rgba(56,189,248,0.28);
+      color: #dff6ff;
+      font-size: clamp(12px, 1.7vw, 15px);
+      line-height: 1.5;
+    }
+
+    .start-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .big-btn {
+      min-height: 72px;
+      border: 0;
+      border-radius: 15px;
+      color: #fff;
+      font-size: clamp(16px, 2.6vw, 23px);
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15), 0 7px 20px rgba(0,0,0,0.25);
+    }
+    #start-sound { background: linear-gradient(135deg, #0284c7, #2563eb); }
+    #start-silent { background: linear-gradient(135deg, #475569, #1e293b); }
+    .small-btn {
+      margin-top: 12px;
+      min-height: 48px;
+      padding: 10px 18px;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.08);
+      color: white;
+      font-weight: 800;
+      font-size: 15px;
+    }
+
+    #result-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin: 14px 0;
+    }
+    .result-box {
+      padding: 10px 6px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .result-box b { display: block; font-size: clamp(20px, 3.5vw, 34px); }
+    .result-box span { color: var(--muted); font-size: 12px; }
+
+    #rotate-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 500;
+      background: #070a13;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 30px;
+      font-size: 18px;
+      line-height: 1.6;
+    }
+
+    @media (orientation: portrait) and (max-width: 900px) {
+      #rotate-overlay { display: flex; }
+    }
+
+    @media (max-height: 430px) {
+      #judge { top: 16%; }
+      #touch-controls { height: 28vh; }
+      .panel { padding: 15px 20px; }
+      .sub, .research-note { margin-bottom: 9px; }
+      .big-btn { min-height: 58px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <canvas id="canvas" width="900" height="500"></canvas>
+
+    <div id="hud">
+      <div class="hud-card" id="score">SCORE 0</div>
+      <div class="hud-card" id="timer">60.0</div>
+      <div class="hud-card" id="mode">MODE: -</div>
+    </div>
+
+    <div id="beat-box" aria-label="beat indicator">
+      <div class="beat-dot"></div><div class="beat-dot"></div><div class="beat-dot"></div><div class="beat-dot"></div>
+    </div>
+
+    <div id="judge">READY</div>
+
+    <div id="touch-controls">
+      <div id="kick-zone" class="touch-zone">⚽ KICK<span>左側をタップ</span></div>
+      <div id="head-zone" class="touch-zone">🧠 HEAD<span>右側をタップ</span></div>
+    </div>
+
+    <div id="start-overlay" class="overlay">
+      <div class="panel">
+        <h1>⚽ Rhythm Football</h1>
+        <div class="sub">スマホ横持ち・N1評価用 Web MVP v1<br>左＝キック / 右＝ヘディング</div>
+        <div class="research-note">
+          「音あり」と「音なし」を同じゲームで比較できます。<br>
+          音なしでは、ボールの動き・4拍表示・タイミングリングだけを手がかりにプレイします。
+        </div>
+        <div class="start-grid">
+          <button class="big-btn" id="start-sound">🔊 音ありで開始</button>
+          <button class="big-btn" id="start-silent">🔇 音なしで開始</button>
+        </div>
+        <div class="sub" style="margin:12px 0 0;">1プレイ 60秒（研究用の仮設定）／PCでは A・D キーでも操作可能</div>
+      </div>
+    </div>
+
+    <div id="result-overlay" class="overlay hidden">
+      <div class="panel">
+        <h1>RESULT</h1>
+        <div class="sub" id="result-mode"></div>
+        <div id="result-score" style="font-size:clamp(30px,6vw,58px);font-weight:1000;color:var(--yellow);">0</div>
+        <div id="result-stats">
+          <div class="result-box"><b id="r-perfect">0</b><span>PERFECT</span></div>
+          <div class="result-box"><b id="r-good">0</b><span>GOOD</span></div>
+          <div class="result-box"><b id="r-miss">0</b><span>MISS</span></div>
+          <div class="result-box"><b id="r-reward">0</b><span>仮報酬 ★</span></div>
+        </div>
+        <div class="start-grid">
+          <button class="big-btn" id="retry-btn" style="background:linear-gradient(135deg,#16a34a,#15803d);">↻ 同じ条件でもう1回</button>
+          <button class="big-btn" id="change-btn" style="background:linear-gradient(135deg,#475569,#1e293b);">条件を変更</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="rotate-overlay">📱↻<br><br><b>スマートフォンを横向きにしてください</b><br>このMVPは横持ちでの操作評価用です。</div>
+
+  <script>
+    'use strict';
+
+    // =============================
+    // 研究用パラメータ
+    // =============================
+    const BPM = 108;                 // 中間MVPと同じ検証用テンポ
+    const GAME_DURATION = 60;        // 60〜90秒仮説のうち、v1では60秒
+    const BALL_EVERY_BEATS = 4;      // 4拍ごとに1球
+    const BALL_SPEED_PER_SEC = 0.84; // 60fps依存をやめて時間ベースに変更
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const timerEl = document.getElementById('timer');
+    const modeEl = document.getElementById('mode');
+    const judgeEl = document.getElementById('judge');
+    const startOverlay = document.getElementById('start-overlay');
+    const resultOverlay = document.getElementById('result-overlay');
+    const beatDots = [...document.querySelectorAll('.beat-dot')];
+    const kickZone = document.getElementById('kick-zone');
+    const headZone = document.getElementById('head-zone');
+
+    let audioCtx = null;
+    let soundEnabled = true;
+    let isPlaying = false;
+    let currentMode = 'sound';
+    let score = 0;
+    let balls = [];
+    let shootEffects = [];
+    let particles = [];
+    let stats = { perfect: 0, good: 0, miss: 0, wrong: 0 };
+    let gameStartMs = 0;
+    let lastFrameMs = performance.now();
+    let nextBallAtSec = 0;
+    let lastBeatIndex = -1;
+
+    const BEAT_SEC = 60 / BPM;
+    const SPAWN_INTERVAL_SEC = BEAT_SEC * BALL_EVERY_BEATS;
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playSE(type) {
+      if (!soundEnabled) return;
+      ensureAudio();
+      if (!audioCtx) return;
+
+      const now = audioCtx.currentTime;
+
+      if (type === 'beat') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(660, now);
+        gain.gain.setValueAtTime(0.035, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.045);
+      } else if (type === 'bounce') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.frequency.setValueAtTime(180, now);
+        osc.frequency.exponentialRampToValueAtTime(60, now + 0.08);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.linearRampToValueAtTime(0.001, now + 0.08);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.08);
+      } else if (type === 'perfect') {
+        [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + i * 0.02);
+          gain.gain.setValueAtTime(0.08, now + i * 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.30);
+          osc.connect(gain); gain.connect(audioCtx.destination);
+          osc.start(now + i * 0.02); osc.stop(now + 0.32);
+        });
+      } else if (type === 'good') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, now);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.2);
+      } else if (type === 'miss') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(110, now);
+        gain.gain.setValueAtTime(0.10, now);
+        gain.gain.linearRampToValueAtTime(0.001, now + 0.18);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.19);
+      }
+    }
+
+    function setJudge(text, color) {
+      judgeEl.textContent = text;
+      judgeEl.style.color = color;
+    }
+
+    function resetGameState() {
+      score = 0;
+      balls = [];
+      shootEffects = [];
+      particles = [];
+      stats = { perfect: 0, good: 0, miss: 0, wrong: 0 };
+      scoreEl.textContent = 'SCORE 0';
+      timerEl.textContent = GAME_DURATION.toFixed(1);
+      setJudge('READY', '#fbbf24');
+      lastBeatIndex = -1;
+    }
+
+    function startGame(mode) {
+      currentMode = mode;
+      soundEnabled = mode === 'sound';
+      if (soundEnabled) ensureAudio();
+
+      resetGameState();
+      startOverlay.classList.add('hidden');
+      resultOverlay.classList.add('hidden');
+      modeEl.textContent = soundEnabled ? 'MODE: 🔊 音あり' : 'MODE: 🔇 音なし';
+      isPlaying = true;
+      gameStartMs = performance.now();
+      nextBallAtSec = 0.20;
+      setJudge('START!', '#38bdf8');
+    }
+
+    function endGame() {
+      if (!isPlaying) return;
+      isPlaying = false;
+      balls = [];
+      setJudge('FINISH!', '#fbbf24');
+
+      const reward = Math.max(0, Math.floor(score / 100));
+      document.getElementById('result-score').textContent = `SCORE ${score}`;
+      document.getElementById('result-mode').textContent = soundEnabled ? '今回の条件：音あり' : '今回の条件：音なし';
+      document.getElementById('r-perfect').textContent = stats.perfect;
+      document.getElementById('r-good').textContent = stats.good;
+      document.getElementById('r-miss').textContent = stats.miss + stats.wrong;
+      document.getElementById('r-reward').textContent = reward;
+
+      setTimeout(() => resultOverlay.classList.remove('hidden'), 350);
+    }
+
+    function spawnBall() {
+      const type = Math.random() > 0.42 ? 'kick' : 'head';
+      balls.push({
+        progress: 0,
+        type,
+        hit: false,
+        soundPlayed: false,
+        expired: false
+      });
+      setJudge(type === 'kick' ? 'KICK が来る!' : 'HEAD が来る!', type === 'kick' ? '#ff7180' : '#55e58e');
+    }
+
+    function handleInput(type) {
+      if (!isPlaying) return;
+
+      const targetIdx = balls.findIndex(b => !b.hit && !b.expired && b.progress >= 0.80 && b.progress <= 1.05);
+
+      if (targetIdx === -1) {
+        score = Math.max(0, score - 50);
+        stats.miss++;
+        setJudge('MISS! 早い / 遅い', '#ef4444');
+        playSE('miss');
+        createShootEffect(type, 'MISS');
+        updateScore();
+        return;
+      }
+
+      const b = balls[targetIdx];
+      const diff = Math.abs(b.progress - 0.93);
+
+      if (b.type !== type) {
+        score = Math.max(0, score - 30);
+        stats.wrong++;
+        setJudge('WRONG ACTION!', '#ef4444');
+        playSE('miss');
+        updateScore();
+        return;
+      }
+
+      b.hit = true;
+      if (diff <= 0.035) {
+        score += 100;
+        stats.perfect++;
+        setJudge('🔥 PERFECT!', '#fbbf24');
+        playSE('perfect');
+        createShootEffect(type, 'PERFECT');
+      } else {
+        score += 50;
+        stats.good++;
+        setJudge('👍 GOOD', '#2ed573');
+        playSE('good');
+        createShootEffect(type, 'GOOD');
+      }
+      updateScore();
+    }
+
+    function updateScore() {
+      scoreEl.textContent = `SCORE ${score}`;
+    }
+
+    function createShootEffect(type, judgeResult) {
+      let targetX, targetY;
+      if (judgeResult === 'PERFECT') {
+        targetX = 115; targetY = 150;
+      } else if (judgeResult === 'GOOD') {
+        targetX = 200; targetY = 185;
+      } else {
+        targetX = 50; targetY = 60;
+      }
+
+      shootEffects.push({
+        progress: 0,
+        startX: 660,
+        startY: 415,
+        targetX,
+        targetY,
+        color: type === 'kick' ? '#ff4757' : '#2ed573',
+        judgeResult
+      });
+    }
+
+    function flashZone(zone) {
+      zone.classList.add('pressed');
+      setTimeout(() => zone.classList.remove('pressed'), 80);
+    }
+
+    function bindTouchZone(zone, type) {
+      zone.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        flashZone(zone);
+        handleInput(type);
+      }, { passive: false });
+    }
+
+    bindTouchZone(kickZone, 'kick');
+    bindTouchZone(headZone, 'head');
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'a' || e.key === 'A') { flashZone(kickZone); handleInput('kick'); }
+      if (e.key === 'd' || e.key === 'D') { flashZone(headZone); handleInput('head'); }
+    });
+
+    document.getElementById('start-sound').addEventListener('click', () => startGame('sound'));
+    document.getElementById('start-silent').addEventListener('click', () => startGame('silent'));
+    document.getElementById('retry-btn').addEventListener('click', () => startGame(currentMode));
+    document.getElementById('change-btn').addEventListener('click', () => {
+      resultOverlay.classList.add('hidden');
+      startOverlay.classList.remove('hidden');
+      modeEl.textContent = 'MODE: -';
+      timerEl.textContent = GAME_DURATION.toFixed(1);
+      setJudge('READY', '#fbbf24');
+    });
+
+    // ブラウザのダブルタップ拡大などを抑える
+    document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
+    document.addEventListener('contextmenu', e => e.preventDefault());
+
+    function drawBackground() {
+      // ナイトスタジアム
+      ctx.fillStyle = '#0a0f1d';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // スタンドの薄い光
+      const grad = ctx.createLinearGradient(0, 0, 0, 220);
+      grad.addColorStop(0, '#111827');
+      grad.addColorStop(1, '#0f172a');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 900, 235);
+
+      for (let x = 20; x < 900; x += 32) {
+        ctx.fillStyle = x % 64 === 20 ? 'rgba(255,255,255,0.09)' : 'rgba(56,189,248,0.08)';
+        ctx.fillRect(x, 90 + (x % 5) * 6, 8, 3);
+      }
+
+      // カクテル光線
+      ctx.fillStyle = 'rgba(255,255,255,0.035)';
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(330,500); ctx.lineTo(115,500); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(900,0); ctx.lineTo(790,500); ctx.lineTo(600,500); ctx.fill();
+
+      // ピッチ
+      ctx.fillStyle = '#15803d';
+      ctx.beginPath();
+      ctx.moveTo(80, 220); ctx.lineTo(380, 220); ctx.lineTo(900,500); ctx.lineTo(-100,500); ctx.fill();
+
+      // 芝ライン
+      ctx.strokeStyle = 'rgba(255,255,255,0.42)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(220,220); ctx.lineTo(520,500); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(355,220); ctx.lineTo(845,500); ctx.stroke();
+
+      // ゴール
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(100,140,200,90);
+      ctx.strokeStyle = 'rgba(255,255,255,0.23)';
+      ctx.lineWidth = 1;
+      for (let x = 115; x < 300; x += 24) { ctx.beginPath(); ctx.moveTo(x,140); ctx.lineTo(x,230); ctx.stroke(); }
+      for (let y = 155; y < 230; y += 18) { ctx.beginPath(); ctx.moveTo(100,y); ctx.lineTo(300,y); ctx.stroke(); }
+
+      // キーパー
+      ctx.fillStyle = '#f97316';
+      ctx.fillRect(180,180,20,40);
+
+      // PERFECT標的
+      ctx.strokeStyle = 'rgba(251,191,36,0.62)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(105,145,30,30);
+
+      // プレイヤー
+      const playerX = 680, playerY = 380;
+      ctx.fillStyle = '#2563eb';
+      ctx.beginPath(); ctx.arc(playerX,playerY-30,22,0,Math.PI*2); ctx.fill();
+      ctx.fillRect(playerX-15,playerY-10,30,45);
+      ctx.fillStyle = '#dbeafe';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.fillText('PLAYER', 650, 448);
+    }
+
+    function drawTimingGuide(activeBall) {
+      if (!activeBall || activeBall.hit) return;
+      const playerX = 660, playerY = 415;
+
+      // ボールが近づくほどリングが縮む。音なしでもタイミングを視覚で取れるようにする。
+      const p = Math.max(0, Math.min(1, (activeBall.progress - 0.55) / (0.93 - 0.55)));
+      if (activeBall.progress < 0.50 || activeBall.progress > 1.02) return;
+
+      const radius = 78 - 47 * p;
+      const alpha = 0.18 + 0.70 * p;
+      ctx.save();
+      ctx.strokeStyle = activeBall.type === 'kick'
+        ? `rgba(255,71,87,${alpha})`
+        : `rgba(46,213,115,${alpha})`;
+      ctx.lineWidth = p > 0.90 ? 7 : 4;
+      ctx.beginPath(); ctx.arc(playerX, playerY, radius, 0, Math.PI*2); ctx.stroke();
+
+      if (p > 0.72) {
+        ctx.fillStyle = activeBall.type === 'kick' ? '#ff7180' : '#55e58e';
+        ctx.font = '900 22px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(activeBall.type === 'kick' ? 'KICK!' : 'HEAD!', playerX, playerY - 72);
+      }
+      ctx.restore();
+    }
+
+    function drawBeatPulse(elapsedSec) {
+      if (!isPlaying) return;
+      const phase = (elapsedSec % BEAT_SEC) / BEAT_SEC;
+      const radius = 30 + phase * 44;
+      const alpha = (1 - phase) * 0.30;
+      ctx.save();
+      ctx.strokeStyle = `rgba(251,191,36,${alpha})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(660,415,radius,0,Math.PI*2); ctx.stroke();
+      ctx.restore();
+    }
+
+    function updateBeatUI(elapsedSec) {
+      const totalBeat = Math.floor(elapsedSec / BEAT_SEC);
+      const beatIndex = ((totalBeat % 4) + 4) % 4;
+      beatDots.forEach((d, i) => d.classList.toggle('active', i === beatIndex));
+
+      if (totalBeat !== lastBeatIndex) {
+        lastBeatIndex = totalBeat;
+        playSE('beat');
+      }
+    }
+
+    function updateGame(nowMs, dtSec) {
+      if (!isPlaying) return;
+
+      const elapsedSec = (nowMs - gameStartMs) / 1000;
+      const remaining = Math.max(0, GAME_DURATION - elapsedSec);
+      timerEl.textContent = remaining.toFixed(1);
+
+      updateBeatUI(elapsedSec);
+
+      while (elapsedSec >= nextBallAtSec && nextBallAtSec <= GAME_DURATION - 2.1) {
+        spawnBall();
+        nextBallAtSec += SPAWN_INTERVAL_SEC;
+      }
+
+      balls.forEach(b => {
+        if (b.hit || b.expired) return;
+        b.progress += BALL_SPEED_PER_SEC * dtSec;
+        if (b.progress > 0.88 && !b.soundPlayed) {
+          playSE('bounce');
+          b.soundPlayed = true;
+        }
+        if (b.progress > 1.12) {
+          b.expired = true;
+          stats.miss++;
+          score = Math.max(0, score - 20);
+          setJudge('MISSED!', '#ef4444');
+          playSE('miss');
+          updateScore();
+        }
+      });
+
+      balls = balls.filter(b => !b.expired && !(b.hit && b.progress > 1.2));
+
+      if (elapsedSec >= GAME_DURATION) endGame();
+    }
+
+    function render(nowMs) {
+      const dtSec = Math.min(0.05, Math.max(0, (nowMs - lastFrameMs) / 1000));
+      lastFrameMs = nowMs;
+      updateGame(nowMs, dtSec);
+
+      drawBackground();
+
+      const elapsedSec = isPlaying ? (nowMs - gameStartMs) / 1000 : 0;
+      drawBeatPulse(elapsedSec);
+
+      const playerX = 680, playerY = 380;
+      let nearestBall = null;
+
+      balls.forEach(b => {
+        if (b.hit || b.expired) return;
+        if (!nearestBall || b.progress > nearestBall.progress) nearestBall = b;
+
+        const startX = 150, startY = 80;
+        const endX = playerX - 20, endY = playerY + 35;
+        const currentX = startX + (endX - startX) * b.progress;
+        const arc = Math.sin(Math.min(1, b.progress) * Math.PI) * 120;
+        const currentY = startY + (endY - startY) * b.progress - arc;
+        const size = 10 + 20 * Math.min(1, b.progress);
+
+        ctx.fillStyle = b.type === 'kick' ? '#ff4757' : '#2ed573';
+        ctx.beginPath(); ctx.arc(currentX,currentY,size,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.font = `900 ${Math.round(11 + 8 * Math.min(1,b.progress))}px sans-serif`;
+        ctx.fillText(b.type === 'kick' ? '足' : '頭', currentX, currentY + 5);
+      });
+
+      drawTimingGuide(nearestBall);
+
+      shootEffects.forEach((s, index) => {
+        s.progress += 2.9 * dtSec;
+        const p = Math.min(1, s.progress);
+        const currentX = s.startX + (s.targetX - s.startX) * p;
+        const currentY = s.startY + (s.targetY - s.startY) * p;
+
+        ctx.strokeStyle = s.color;
+        ctx.lineWidth = s.judgeResult === 'PERFECT' ? 12 * (1-p) + 3 : 6 * (1-p) + 1;
+        ctx.beginPath(); ctx.moveTo(s.startX,s.startY); ctx.lineTo(currentX,currentY); ctx.stroke();
+
+        ctx.fillStyle = s.color;
+        ctx.beginPath(); ctx.arc(currentX,currentY,10*(1-p)+4,0,Math.PI*2); ctx.fill();
+
+        if (s.progress >= 1) {
+          const count = s.judgeResult === 'PERFECT' ? 40 : (s.judgeResult === 'GOOD' ? 15 : 0);
+          for (let i=0; i<count; i++) {
+            particles.push({
+              x:s.targetX, y:s.targetY,
+              vx:(Math.random()-0.5)*(s.judgeResult==='PERFECT'?420:220),
+              vy:(Math.random()-0.5)*(s.judgeResult==='PERFECT'?420:220),
+              color:s.judgeResult==='PERFECT' ? '#fbbf24' : s.color,
+              alpha:1
+            });
+          }
+          shootEffects.splice(index,1);
+        }
+      });
+
+      particles.forEach((p,index) => {
+        p.x += p.vx * dtSec;
+        p.y += p.vy * dtSec;
+        p.vx *= 0.97;
+        p.vy *= 0.97;
+        p.alpha *= Math.pow(0.90, dtSec * 60);
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.x,p.y,5,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+        if (p.alpha < 0.015) particles.splice(index,1);
+      });
+
+      requestAnimationFrame(render);
+    }
+
+    requestAnimationFrame((t) => {
+      lastFrameMs = t;
+      render(t);
+    });
+  </script>
+</body>
+</html>
