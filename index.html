@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#070a13" />
-  <title>Rhythm Football - Smartphone N1 MVP</title>
+  <title>Rhythm Football - Smartphone N1 MVP v1.1</title>
   <style>
     :root {
       --bg: #070a13;
@@ -55,29 +55,47 @@
     #hud {
       position: absolute;
       top: max(10px, env(safe-area-inset-top));
-      left: max(12px, env(safe-area-inset-left));
-      right: max(12px, env(safe-area-inset-right));
+      left: auto;
+      right: max(10px, env(safe-area-inset-right));
       z-index: 20;
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: start;
-      gap: 8px;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 6px;
       pointer-events: none;
+      max-width: 78vw;
     }
 
     .hud-card {
       background: rgba(5, 10, 20, 0.70);
       border: 1px solid rgba(255,255,255,0.14);
       border-radius: 12px;
-      padding: 8px 12px;
+      padding: 6px 9px;
       backdrop-filter: blur(6px);
       -webkit-backdrop-filter: blur(6px);
       box-shadow: 0 6px 20px rgba(0,0,0,0.22);
     }
 
-    #score { font-size: clamp(16px, 2.3vw, 26px); font-weight: 900; color: var(--cyan); }
-    #timer { font-size: clamp(18px, 2.5vw, 30px); font-weight: 900; text-align: center; }
-    #mode { font-size: clamp(11px, 1.5vw, 16px); color: var(--muted); text-align: right; }
+    #score { font-size: clamp(13px, 1.8vw, 21px); font-weight: 900; color: var(--cyan); white-space: nowrap; }
+    #timer { font-size: clamp(15px, 2vw, 24px); font-weight: 900; text-align: center; min-width: 58px; }
+    #mode { font-size: clamp(9px, 1.2vw, 13px); color: var(--muted); text-align: right; white-space: nowrap; }
+    #play-tip {
+      position: absolute;
+      bottom: calc(max(8px, env(safe-area-inset-bottom)) + min(29vh, 170px) + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 16;
+      padding: 5px 12px;
+      border: 1px solid rgba(251,191,36,0.35);
+      border-radius: 24px;
+      background: rgba(7,10,19,0.74);
+      color: #fde68a;
+      font-size: clamp(11px, 1.4vw, 14px);
+      font-weight: 800;
+      text-align: center;
+      white-space: nowrap;
+      pointer-events: none;
+    }
 
     #judge {
       position: absolute;
@@ -180,6 +198,7 @@
     h1 { margin: 0 0 8px; font-size: clamp(24px, 4.8vw, 44px); }
     .sub { color: var(--muted); font-size: clamp(13px, 1.8vw, 17px); line-height: 1.55; margin-bottom: 16px; }
     .research-note {
+      text-align: left;
       margin: 12px auto 18px;
       max-width: 620px;
       padding: 10px 14px;
@@ -257,6 +276,9 @@
 
     @media (max-height: 430px) {
       #judge { top: 16%; }
+      #hud { gap: 4px; }
+      .hud-card { padding: 4px 7px; }
+      #play-tip { padding: 3px 10px; }
       #touch-controls { height: 28vh; }
       .panel { padding: 15px 20px; }
       .sub, .research-note { margin-bottom: 9px; }
@@ -279,6 +301,7 @@
     </div>
 
     <div id="judge">READY</div>
+    <div id="play-tip">金色の輪にボールが来たら押す！ 足→左 / 頭→右</div>
 
     <div id="touch-controls">
       <div id="kick-zone" class="touch-zone">⚽ KICK<span>左側をタップ</span></div>
@@ -288,10 +311,14 @@
     <div id="start-overlay" class="overlay">
       <div class="panel">
         <h1>⚽ Rhythm Football</h1>
-        <div class="sub">スマホ横持ち・N1評価用 Web MVP v1<br>左＝キック / 右＝ヘディング</div>
+        <div class="sub">スマホ横持ち・N1評価用 Web MVP v1.1</div>
         <div class="research-note">
-          「音あり」と「音なし」を同じゲームで比較できます。<br>
-          音なしでは、ボールの動き・4拍表示・タイミングリングだけを手がかりにプレイします。
+          <b>あそびかた（3ステップ）</b><br>
+          ① ボールに書かれた「足」か「頭」を確認する<br>
+          ② <b>足＝左のKICK／頭＝右のHEAD</b> を選ぶ<br>
+          ③ ボールが<b>プレイヤーの金色の輪に重なる瞬間</b>にタップ！<br>
+          判定はPERFECT・GOOD・MISSの3種類です。<br>
+          <small>音あり／音なしを比較できます。音楽は未実装で、現段階の音は検証用の電子音です。</small>
         </div>
         <div class="start-grid">
           <button class="big-btn" id="start-sound">🔊 音ありで開始</button>
@@ -677,6 +704,26 @@
         ctx.textAlign = 'center';
         ctx.fillText(activeBall.type === 'kick' ? 'KICK!' : 'HEAD!', playerX, playerY - 72);
       }
+      if (Math.abs(activeBall.progress - 0.93) <= 0.035) {
+        ctx.fillStyle = '#fde68a';
+        ctx.font = '1000 24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('いま！', playerX, playerY - 103);
+      }
+      ctx.restore();
+    }
+
+    function drawHitTarget(activeBall) {
+      const ready = activeBall && !activeBall.hit;
+      const near = ready && Math.abs(activeBall.progress - 0.93) <= 0.035;
+      ctx.save();
+      ctx.strokeStyle = near ? '#fff4b0' : 'rgba(251,191,36,0.85)';
+      ctx.lineWidth = near ? 8 : 4;
+      ctx.shadowColor = '#fbbf24';
+      ctx.shadowBlur = near ? 25 : 10;
+      ctx.beginPath();
+      ctx.arc(660, 415, 32, 0, Math.PI * 2);
+      ctx.stroke();
       ctx.restore();
     }
 
@@ -758,10 +805,18 @@
 
         const startX = 150, startY = 80;
         const endX = playerX - 20, endY = playerY + 35;
-        const currentX = startX + (endX - startX) * b.progress;
-        const arc = Math.sin(Math.min(1, b.progress) * Math.PI) * 120;
-        const currentY = startY + (endY - startY) * b.progress - arc;
-        const size = 10 + 20 * Math.min(1, b.progress);
+        // PERFECT中心（進行度0.93）でボールが実際に金色のリングに重なるよう軌道を補正
+        const approach = b.progress / 0.93;
+        let currentX, currentY;
+        if (approach <= 1) {
+          currentX = startX + (endX - startX) * approach;
+          currentY = startY + (endY - startY) * approach - Math.sin(approach * Math.PI) * 120;
+        } else {
+          const over = approach - 1;
+          currentX = endX + over * 210;
+          currentY = endY + over * 150;
+        }
+        const size = 10 + 20 * Math.min(1, approach);
 
         ctx.fillStyle = b.type === 'kick' ? '#ff4757' : '#2ed573';
         ctx.beginPath(); ctx.arc(currentX,currentY,size,0,Math.PI*2); ctx.fill();
@@ -773,6 +828,7 @@
         ctx.fillText(b.type === 'kick' ? '足' : '頭', currentX, currentY + 5);
       });
 
+      drawHitTarget(nearestBall);
       drawTimingGuide(nearestBall);
 
       shootEffects.forEach((s, index) => {
