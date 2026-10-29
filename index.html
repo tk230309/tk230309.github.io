@@ -146,7 +146,8 @@
       height: min(29vh, 170px);
       z-index: 30;
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 30% 30%;
+      justify-content: space-between;
       gap: 10px;
     }
 
@@ -575,7 +576,7 @@
 
       shootEffects.push({
         progress: 0,
-        startX: 660,
+        startX: 540,
         startY: 415,
         targetX,
         targetY,
@@ -671,8 +672,8 @@
       ctx.lineWidth = 2;
       ctx.strokeRect(105,145,30,30);
 
-      // プレイヤー
-      const playerX = 680, playerY = 380;
+      // プレイヤー：左右タップゾーンの中央の空き領域に配置
+      const playerX = 560, playerY = 380;
       ctx.fillStyle = '#2563eb';
       ctx.beginPath(); ctx.arc(playerX,playerY-30,22,0,Math.PI*2); ctx.fill();
       ctx.fillRect(playerX-15,playerY-10,30,45);
@@ -683,7 +684,7 @@
 
     function drawTimingGuide(activeBall) {
       if (!activeBall || activeBall.hit) return;
-      const playerX = 660, playerY = 415;
+      const playerX = 540, playerY = 415;
 
       // ボールが近づくほどリングが縮む。音なしでもタイミングを視覚で取れるようにする。
       const p = Math.max(0, Math.min(1, (activeBall.progress - 0.55) / (0.93 - 0.55)));
@@ -722,7 +723,7 @@
       ctx.shadowColor = '#fbbf24';
       ctx.shadowBlur = near ? 25 : 10;
       ctx.beginPath();
-      ctx.arc(660, 415, 32, 0, Math.PI * 2);
+      ctx.arc(540, 415, 32, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
@@ -735,7 +736,7 @@
       ctx.save();
       ctx.strokeStyle = `rgba(251,191,36,${alpha})`;
       ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(660,415,radius,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(540,415,radius,0,Math.PI*2); ctx.stroke();
       ctx.restore();
     }
 
@@ -796,7 +797,7 @@
       const elapsedSec = isPlaying ? (nowMs - gameStartMs) / 1000 : 0;
       drawBeatPulse(elapsedSec);
 
-      const playerX = 680, playerY = 380;
+      const playerX = 560, playerY = 380;
       let nearestBall = null;
 
       balls.forEach(b => {
