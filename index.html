@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#070a13" />
-  <title>Rhythm Football - Smartphone N1 MVP v1.1</title>
+  <title>Rhythm Football - Smartphone N1 MVP v1.2</title>
   <style>
     :root {
       --bg: #070a13;
@@ -172,6 +172,37 @@
     #head-zone { background: rgba(46,213,115,0.23); }
     .touch-zone.pressed { transform: scale(0.985); filter: brightness(1.35); border-color: white; }
 
+    /* 音なしでも開始タイミングが分かる3秒カウントダウン */
+    #countdown {
+      position: absolute;
+      inset: 0;
+      z-index: 65;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      background: rgba(3, 8, 19, 0.53);
+    }
+    #countdown.hidden { display: none; }
+    #countdown-text {
+      display: block;
+      color: #fbbf24;
+      font-size: clamp(88px, 20vw, 170px);
+      font-weight: 1000;
+      line-height: 1;
+      text-align: center;
+      text-shadow: 0 6px 28px rgba(0,0,0,0.75), 0 0 30px rgba(251,191,36,0.38);
+    }
+    #countdown-text.go { color: #4ade80; font-size: clamp(55px, 11vw, 112px); }
+    #countdown-text.pop { animation: countdown-pop 240ms ease-out; }
+    @keyframes countdown-pop {
+      from { opacity: 0.65; transform: scale(1.32); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #countdown-text.pop { animation: none; }
+    }
+
     .overlay {
       position: absolute;
       inset: 0;
@@ -303,6 +334,9 @@
 
     <div id="judge">READY</div>
     <div id="play-tip">金色の輪にボールが来たら押す！ 足→左 / 頭→右</div>
+    <div id="countdown" class="hidden" aria-live="off" aria-hidden="true">
+      <span id="countdown-text">3</span>
+    </div>
 
     <div id="touch-controls">
       <div id="kick-zone" class="touch-zone">⚽ KICK<span>左側をタップ</span></div>
@@ -312,7 +346,7 @@
     <div id="start-overlay" class="overlay">
       <div class="panel">
         <h1>⚽ Rhythm Football</h1>
-        <div class="sub">スマホ横持ち・N1評価用 Web MVP v1.1</div>
+        <div class="sub">スマホ横持ち・N1評価用 Web MVP v1.2</div>
         <div class="research-note">
           <b>あそびかた（3ステップ）</b><br>
           ① ボールに書かれた「足」か「頭」を確認する<br>
@@ -325,7 +359,7 @@
           <button class="big-btn" id="start-sound">🔊 音ありで開始</button>
           <button class="big-btn" id="start-silent">🔇 音なしで開始</button>
         </div>
-        <div class="sub" style="margin:12px 0 0;">1プレイ 60秒（研究用の仮設定）／PCでは A・D キーでも操作可能</div>
+        <div class="sub" style="margin:12px 0 0;">3・2・1・START! の合図で開始 ／ 1プレイ60秒 ／ PCはA・Dキーでも操作可能</div>
       </div>
     </div>
 
@@ -369,6 +403,8 @@
     const judgeEl = document.getElementById('judge');
     const startOverlay = document.getElementById('start-overlay');
     const resultOverlay = document.getElementById('result-overlay');
+    const countdownEl = document.getElementById('countdown');
+    const countdownTextEl = document.getElementById('countdown-text');
     const beatDots = [...document.querySelectorAll('.beat-dot')];
     const kickZone = document.getElementById('kick-zone');
     const headZone = document.getElementById('head-zone');
@@ -376,6 +412,9 @@
     let audioCtx = null;
     let soundEnabled = true;
     let isPlaying = false;
+    let isCountingDown = false;
+    let countdownStartMs = 0;
+    let lastCountdownDisplay = '';
     let currentMode = 'sound';
     let score = 0;
     let balls = [];
@@ -405,7 +444,18 @@
 
       const now = audioCtx.currentTime;
 
-      if (type === 'beat') {
+      if (type === 'countdown' || type === 'countdown-go') {
+        const go = type === 'countdown-go';
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const duration = go ? 0.22 : 0.11;
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(go ? 880 : 560, now);
+        gain.gain.setValueAtTime(go ? 0.10 : 0.065, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + duration);
+      } else if (type === 'beat') {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'sine';
@@ -472,6 +522,18 @@
       lastBeatIndex = -1;
     }
 
+    function showCountdown(value) {
+      if (value === lastCountdownDisplay) return;
+      lastCountdownDisplay = value;
+      countdownTextEl.textContent = value;
+      countdownTextEl.classList.toggle('go', value === 'START!');
+      countdownTextEl.classList.remove('pop');
+      // 3 → 2 → 1 → START! の切り替わりでアニメーションを再開
+      void countdownTextEl.offsetWidth;
+      countdownTextEl.classList.add('pop');
+      playSE(value === 'START!' ? 'countdown-go' : 'countdown');
+    }
+
     function startGame(mode) {
       currentMode = mode;
       soundEnabled = mode === 'sound';
@@ -481,10 +543,36 @@
       startOverlay.classList.add('hidden');
       resultOverlay.classList.add('hidden');
       modeEl.textContent = soundEnabled ? 'MODE: 🔊 音あり' : 'MODE: 🔇 音なし';
-      isPlaying = true;
-      gameStartMs = performance.now();
-      nextBallAtSec = 0.20;
-      setJudge('START!', '#38bdf8');
+      isPlaying = false;
+      isCountingDown = true;
+      countdownStartMs = performance.now();
+      lastCountdownDisplay = '';
+      countdownEl.classList.remove('hidden');
+      showCountdown('3');
+      setJudge('準備してね', '#fbbf24');
+    }
+
+    function updateCountdown(nowMs) {
+      if (!isCountingDown) return;
+      const elapsed = Math.max(0, (nowMs - countdownStartMs) / 1000);
+      if (elapsed < 1) showCountdown('3');
+      else if (elapsed < 2) showCountdown('2');
+      else if (elapsed < 3) showCountdown('1');
+      else {
+        showCountdown('START!');
+        if (!isPlaying) {
+          gameStartMs = countdownStartMs + 3000;
+          nextBallAtSec = 0.20;
+          lastBeatIndex = -1;
+          isPlaying = true;
+          setJudge('START!', '#38bdf8');
+        }
+        // START!を少し表示してから通常のゲーム画面に戻す
+        if (elapsed >= 3.65) {
+          isCountingDown = false;
+          countdownEl.classList.add('hidden');
+        }
+      }
     }
 
     function endGame() {
@@ -790,6 +878,7 @@
     function render(nowMs) {
       const dtSec = Math.min(0.05, Math.max(0, (nowMs - lastFrameMs) / 1000));
       lastFrameMs = nowMs;
+      updateCountdown(nowMs);
       updateGame(nowMs, dtSec);
 
       drawBackground();
